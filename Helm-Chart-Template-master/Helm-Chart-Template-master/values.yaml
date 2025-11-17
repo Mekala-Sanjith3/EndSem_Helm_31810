@@ -1,0 +1,141 @@
+# Global configuration
+global:
+  namespace: default
+
+# MySQL Database Configuration
+mysql:
+  enabled: true
+  image:
+    repository: mysql
+    tag: "8.0"
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 3306
+  storage: 5Gi
+  storageClassName: ""  # Use default storage class if empty
+  rootPassword: root
+  database: hospital
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Backend Application Configuration
+backend:
+  enabled: true
+  image:
+    repository: hospital-backend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 8081
+  nodePort: 30081  # Set to null to disable NodePort
+  serviceType: NodePort  # ClusterIP, NodePort, or LoadBalancer
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  env:
+    SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/hospital"
+    SPRING_DATASOURCE_USERNAME: "root"
+    SPRING_DATASOURCE_PASSWORD: "root"
+    SPRING_JPA_HIBERNATE_DDL_AUTO: "update"
+    SPRING_JPA_DATABASE_PLATFORM: "org.hibernate.dialect.MySQL8Dialect"
+    SPRING_JPA_SHOW_SQL: "true"
+  livenessProbe:
+    enabled: true
+    tcpSocket:
+      port: 8081
+    initialDelaySeconds: 60
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    tcpSocket:
+      port: 8081
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# Frontend Application Configuration
+frontend:
+  enabled: true
+  image:
+    repository: hospital-frontend
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  replicas: 2
+  port: 80
+  nodePort: 30080  # Set to null to disable NodePort
+  serviceType: NodePort  # ClusterIP, NodePort, or LoadBalancer
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+  env:
+    REACT_APP_BACKEND_URL: "http://backend:8081"
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /
+      port: 80
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # Optional: for TLS
+  hosts:
+    - host: hospital.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+        - path: /api
+          pathType: Prefix
+          service: backend
+  tls: []  # Optional: Add TLS configuration
+    # - secretName: hospital-tls
+    #   hosts:
+    #     - hospital.local
+
+# Horizontal Pod Autoscaler Configuration
+autoscaling:
+  backend:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  frontend:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80

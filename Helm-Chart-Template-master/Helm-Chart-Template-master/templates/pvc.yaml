@@ -1,0 +1,20 @@
+{{- if .Values.mysql.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pvc
+  labels:
+    app: mysql
+    chart: {{ include "hospital.chart" . }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.mysql.storageClassName }}
+  storageClassName: {{ .Values.mysql.storageClassName }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.mysql.storage }}
+{{- end }}

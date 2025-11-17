@@ -1,0 +1,46 @@
+1. Get the application URLs by running these commands:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+
+{{- else if contains "NodePort" .Values.frontend.serviceType }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services frontend)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Frontend URL: http://$NODE_IP:$NODE_PORT"
+
+{{- else if contains "LoadBalancer" .Values.frontend.serviceType }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w frontend'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} frontend --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo "Frontend URL: http://$SERVICE_IP:{{ .Values.frontend.port }}"
+{{- else if contains "ClusterIP" .Values.frontend.serviceType }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app=frontend" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:8080 to use your application"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME 8080:$CONTAINER_PORT
+{{- end }}
+
+{{- if contains "NodePort" .Values.backend.serviceType }}
+  export BACKEND_NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services backend)
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "Backend URL: http://$NODE_IP:$BACKEND_NODE_PORT"
+{{- end }}
+
+2. Get MySQL connection details:
+   MYSQL_HOST=mysql
+   MYSQL_PORT={{ .Values.mysql.port }}
+   MYSQL_DATABASE={{ .Values.mysql.database }}
+   MYSQL_USER=root
+   MYSQL_PASSWORD={{ .Values.mysql.rootPassword }}
+
+3. Check pod status:
+   kubectl get pods --namespace {{ .Release.Namespace }} -l "app in (frontend,backend,mysql)"
+
+4. View logs:
+   kubectl logs --namespace {{ .Release.Namespace }} -l "app=backend" --tail=50
+   kubectl logs --namespace {{ .Release.Namespace }} -l "app=frontend" --tail=50
+   kubectl logs --namespace {{ .Release.Namespace }} -l "app=mysql" --tail=50
+
